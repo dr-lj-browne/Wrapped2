@@ -1,0 +1,475 @@
+---
+output: html_document
+runtime: shiny
+---
+<style>
+    body { background-color: #c7f5d7; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(jsonlite)
+library(dplyr)
+library(scales)
+library(ggplot2)
+library(labelled)
+library(forcats)
+library(lubridate)
+library(knitr)
+library(kableExtra)
+```
+
+
+# Welcome to your unofficial Spotify Wrapped!!
+
+This will show you your top artists and tracks of the year as well as of each month. You'll also get to see which days you were listening to the most music and which days and times you were listening to that music. Before we get into all that, you probably have an idea of what your top songs and artists are. The first section will show you your top five, and you can drag and drop them to see how many are in the correct place.
+
+```{r, include=FALSE}
+Full <- fromJSON('LOCATION/FILE.json')%>% mutate(Day = as.Date(endTime))%>% filter(Day > as.Date("2023-12-31"))%>% filter(artistName != "Unknown Artist")
+Artists <- as.data.frame(table(Full$artistName))%>% arrange(desc(Freq))
+Songs <- as.data.frame(table(Full$trackName))%>% arrange(desc(Freq))
+TopArtists<- head(Artists,20)
+TopSongs<-head(Songs,20)
+TopFiveA<-head(Artists,5)
+TopFiveS<-head(Songs,5)
+TopFiveArtists<-TopFiveA$Var1
+TopFiveArtists<-factor(TopFiveArtists,labels = TopFiveArtists)
+TopFiveArtistsr <- sample(TopFiveArtists, 5, FALSE)
+TopFiveSongs<- TopFiveS$Var1
+TopFiveSongs<-factor(TopFiveSongs,labels = TopFiveSongs)
+TopFiveSongsr <- sample(TopFiveSongs, 5, FALSE)
+list15<-c("1","2","3","4","5")
+
+```
+
+# Guess Your Stats
+
+How well do you think you know your listening? The number correct will display after your ranking.
+
+## Guess Your Top Artists
+
+```{r, include=FALSE}
+library(shiny)
+library(shinyjqui)
+server <- function(input, output) {
+    output$correct <- renderPrint({sum(input$foo==list15)})
+}
+
+ui <- fluidPage(
+    orderInput(inputId = 'foo', label = 'Arrange your top five artists', items = TopFiveArtistsr, class = "btn-group-vertical"),textOutput('correct'))
+ArrangeTheArtists<-shinyApp(ui, server)
+```
+
+```{r, echo=FALSE}
+ArrangeTheArtists
+```
+
+## Guess Your Top Songs
+
+```{r, include=FALSE}
+server <- function(input, output) {
+    output$correct <- renderPrint({sum(input$foo==list15)})
+}
+
+ui <- fluidPage(
+    orderInput(inputId = 'foo', label = 'Arrange your top five songs', items = TopFiveSongsr, class = "btn-group-vertical"),textOutput('correct'))
+ArrangeTheSongs<-shinyApp(ui, server)
+```
+
+```{r, echo=FALSE}
+ArrangeTheSongs
+```
+
+
+# Summary
+You listened to `r length(Songs$Freq)` different songs by `r length(Artists$Freq)` different artists. This is an average of `r round( length(Songs$Freq)/ length(Artists$Freq),2) ` songs per artist.
+
+## Top 20 Artists
+```{r, echo=FALSE}
+tablecolors <- NULL
+for (i in 1:length(TopArtists$Var1)){
+  cadd <- ifelse(i%%2 == 1, "lightgreen", "white")
+  tablecolors <- c(tablecolors, cadd)
+}
+kbl(TopArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+## Top Songs
+
+```{r, echo=FALSE}
+tablecolors <- NULL
+for (i in 1:length(TopSongs$Var1)){
+  cadd <- ifelse(i%%2 == 1, "lightgreen", "white")
+  tablecolors <- c(tablecolors, cadd)
+}
+kbl(TopSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+# By the day
+
+```{r, include=FALSE}
+Daytoday <- as.data.frame(table(Full$Day))%>% arrange(desc(Freq))
+TopDays<- head(Daytoday,20)
+```
+
+These are the days you listened to music the most
+
+```{r, echo=FALSE}
+tablecolors <- NULL
+for (i in 1:length(TopDays$Var1)){
+  cadd <- ifelse(i%%2 == 1, "lightgreen", "white")
+  tablecolors <- c(tablecolors, cadd)
+}
+kbl(TopDays, col.names = c("Day", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+```
+
+## What were you doing on...
+
+### New Year's Day
+
+```{r, include=FALSE}
+dny <- Full %>% filter(Day == as.Date("2024-01-01"))
+```
+
+You listened to music for `r round(sum(dny$msPlayed)/60000,2)` minutes on New Year's Day. That's a start
+
+### Valentine's Day
+
+```{r, include=FALSE}
+dv <- Full %>% filter(Day == as.Date("2024-02-14"))
+```
+
+You listened to music for `r round(sum(dv$msPlayed)/60000,2)` minutes on Valentine's Day. Love that for you.
+
+### Extraterrestrial Culture Day
+
+```{r, include=FALSE}
+dexc <- Full %>% filter(Day == as.Date("2024-02-13"))
+```
+
+You listened to music for `r round(sum(dexc$msPlayed)/60000,2)` minutes on Extraterrestrial Culture Day. Out of this world!
+
+### 9/11
+
+```{r, include=FALSE}
+d911 <- Full %>% filter(Day == as.Date("2024-09-11"))
+Artists911 <- as.data.frame(table(d911$artistName))%>% arrange(desc(Freq))
+Songs911 <- as.data.frame(table(d911$trackName))%>% arrange(desc(Freq))
+```
+
+You listened to music for `r round(sum(d911$msPlayed)/60000,2)` minutes on 9/11. A joke would be inappropriate here. Two would be worse.
+
+### The Onion buying Infowars
+
+```{r, include=FALSE}
+donion <- Full %>% filter(Day == as.Date("2024-11-14"))
+```
+
+You listened to music for `r round(sum(donion$msPlayed)/60000,2)` minutes on the day the Onion bough Infowars. Unbelievable!
+
+## Total Time
+```{r, include=FALSE}
+minutes <- as.character(round(sum(Full$msPlayed/60000),2))
+```
+
+Overall, you listened to music for `r minutes` minutes.
+
+## January
+
+```{r, include=FALSE}
+tablecolors <- NULL
+for (i in 1:5){
+  cadd <- ifelse(i%%2 == 1, "lightgreen", "white")
+  tablecolors <- c(tablecolors, cadd)
+}
+Jan <- Full %>% filter(Day<as.Date("2024-02-01"))
+JanArtists <- as.data.frame(table(Jan$artistName)) %>% arrange(desc(Freq))
+JanSongs <- as.data.frame(table(Jan$trackName))%>% arrange(desc(Freq))
+JanuaryArtists<-head(JanArtists, 5)
+JanuarySongs<-head(JanSongs, 5)
+
+```
+```{r, echo=FALSE}
+kbl(JanuaryArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(JanuarySongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In January, you listened to `r length(JanSongs$Var1)` different songs by `r length(JanArtists$Var1)` different artists.
+
+## February
+
+```{r, include=FALSE}
+Feb <- Full %>% filter(Day>as.Date("2024-01-31"))%>%filter(Day<as.Date("2024-03-01"))
+FebArtists <- as.data.frame(table(Feb$artistName)) %>% arrange(desc(Freq))
+FebSongs <- as.data.frame(table(Feb$trackName))%>% arrange(desc(Freq))
+FebruaryArtists<-head(FebArtists, 5)
+FebruarySongs <- head(FebSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(FebruaryArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(FebruarySongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In Febrary, you listened to `r length(FebSongs$Var1)` different songs by `r length(FebArtists$Var1)` different artists.
+
+## March
+
+```{r, include=FALSE}
+Mar <- Full %>% filter(Day>as.Date("2024-02-29"))%>%filter(Day<as.Date("2024-04-01"))
+MarArtists <- as.data.frame(table(Mar$artistName)) %>% arrange(desc(Freq))
+MarSongs <- as.data.frame(table(Mar$trackName))%>% arrange(desc(Freq))
+MarchArtists<-head(MarArtists, 5)
+MarchSongs <- head(MarSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(MarchArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(MarchSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In March, you listened to `r length(MarSongs$Var1)` different songs by `r length(MarArtists$Var1)` different artists.
+
+
+## April
+
+```{r, include=FALSE}
+Apr <- Full %>% filter(Day>as.Date("2024-03-31"))%>%filter(Day<as.Date("2024-05-01"))
+AprArtists <- as.data.frame(table(Apr$artistName)) %>% arrange(desc(Freq))
+AprSongs <- as.data.frame(table(Apr$trackName))%>% arrange(desc(Freq))
+AprilArtists<-head(AprArtists, 5)
+AprilSongs <- head(AprSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(AprilArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(AprilSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In April, you listened to `r length(AprSongs$Var1)` different songs by `r length(AprArtists$Var1)` different artists.
+
+## May
+
+```{r, include=FALSE}
+May <- Full %>% filter(Day>as.Date("2024-04-30"))%>%filter(Day<as.Date("2024-06-01"))
+MayArtists <- as.data.frame(table(May$artistName)) %>% arrange(desc(Freq))
+MaySongs <- as.data.frame(table(May$trackName))%>% arrange(desc(Freq))
+May_Artists<-head(MayArtists, 5)
+May_Songs <- head(MaySongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(May_Artists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(May_Songs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In May, you listened to `r length(MaySongs$Var1)` different songs by `r length(MayArtists$Var1)` different artists.
+
+## June
+
+```{r, include=FALSE}
+Jun <- Full %>% filter(Day>as.Date("2024-05-31"))%>%filter(Day<as.Date("2024-07-01"))
+JunArtists <- as.data.frame(table(Jun$artistName)) %>% arrange(desc(Freq))
+JunSongs <- as.data.frame(table(Jun$trackName))%>% arrange(desc(Freq))
+JuneArtists<-head(JunArtists, 5)
+JuneSongs <- head(JunSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(JuneArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(JuneSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In June, you listened to `r length(JunSongs$Var1)` different songs by `r length(JunArtists$Var1)` different artists.
+
+
+## July
+
+```{r, include=FALSE}
+Jul <- Full %>% filter(Day>as.Date("2024-06-30"))%>%filter(Day<as.Date("2024-08-01"))
+JulArtists <- as.data.frame(table(Jul$artistName)) %>% arrange(desc(Freq))
+JulSongs <- as.data.frame(table(Jul$trackName))%>% arrange(desc(Freq))
+JulyArtists<-head(JulArtists, 5)
+JulySongs <- head(JulSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(JulyArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(JulySongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In July, you listened to `r length(JulSongs$Var1)` different songs by `r length(JulArtists$Var1)` different artists.
+
+## August
+
+```{r, include=FALSE}
+Aug <- Full %>% filter(Day>as.Date("2024-07-31"))%>%filter(Day<as.Date("2024-09-01"))
+AugArtists <- as.data.frame(table(Aug$artistName)) %>% arrange(desc(Freq))
+AugSongs <- as.data.frame(table(Aug$trackName))%>% arrange(desc(Freq))
+AugustArtists<-head(AugArtists, 5)
+AugustSongs <- head(AugSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(AugustArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(AugustSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In August, you listened to `r length(AugSongs$Var1)` different songs by `r length(AugArtists$Var1)` different artists.
+
+## September
+
+```{r, include=FALSE}
+Sep <- Full %>% filter(Day>as.Date("2024-08-31"))%>%filter(Day<as.Date("2024-10-01"))
+SepArtists <- as.data.frame(table(Sep$artistName)) %>% arrange(desc(Freq))
+SepSongs <- as.data.frame(table(Sep$trackName))%>% arrange(desc(Freq))
+SeptemberArtists<-head(SepArtists, 5)
+SeptemberSongs <- head(SepSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(SeptemberArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(SeptemberSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In September, you listened to `r length(SepSongs$Var1)` different songs by `r length(SepArtists$Var1)` different artists.
+
+
+## October
+
+```{r, include=FALSE}
+Oct <- Full %>% filter(Day>as.Date("2024-09-30"))%>%filter(Day<as.Date("2024-11-01"))
+OctArtists <- as.data.frame(table(Oct$artistName)) %>% arrange(desc(Freq))
+OctSongs <- as.data.frame(table(Oct$trackName))%>% arrange(desc(Freq))
+OctoberArtists<-head(OctArtists, 5)
+OctoberSongs <- head(OctSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(OctoberArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(OctoberSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In October, you listened to `r length(OctSongs$Var1)` different songs by `r length(OctArtists$Var1)` different artists.
+
+## November
+
+```{r, include=FALSE}
+Nov <- Full %>% filter(Day>as.Date("2024-10-31"))%>%filter(Day<as.Date("2024-12-01"))
+NovArtists <- as.data.frame(table(Nov$artistName)) %>% arrange(desc(Freq))
+NovSongs <- as.data.frame(table(Nov$trackName))%>% arrange(desc(Freq))
+NovemberArtists<-head(NovArtists, 5)
+NovemberSongs <- head(NovSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(NovemberArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(NovemberSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In November, you listened to `r length(NovSongs$Var1)` different songs by `r length(NovArtists$Var1)` different artists.
+
+## December
+
+```{r, include=FALSE}
+Dec <- Full %>% filter(Day>as.Date("2024-11-30"))%>%filter(Day<as.Date("2025-01-01"))
+DecArtists <- as.data.frame(table(Dec$artistName)) %>% arrange(desc(Freq))
+DecSongs <- as.data.frame(table(Dec$trackName))%>% arrange(desc(Freq))
+DecemberArtists<-head(DecArtists, 5)
+DecemberSongs <- head(DecSongs, 5)
+```
+
+```{r, echo=FALSE}
+kbl(DecemberArtists, col.names = c("Artist", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+
+kbl(DecemberSongs, col.names = c("Song", "Number of plays"))%>%
+  column_spec(c(1,2),background=tablecolors)
+```
+
+
+In December, you listened to `r length(DecSongs$Var1)` different songs by `r length(DecArtists$Var1)` different artists.
+
+
+# Time of Day
+
+```{r, include=FALSE}
+FTime <- Full %>% mutate(time = hour(endTime))
+hours <- as.data.frame(table(FTime$time))
+tophour <- head(arrange(as.data.frame(table(FTime$time)),desc(Freq)),1)
+tophour <- tophour$Var1
+tophour <- as.numeric(tophour[1])
+colfunc = colorRampPalette(c("bisque","cornsilk", "lightgreen","lightblue", "lavender", "pink"))
+colors = colfunc(24)
+hours$hour <- as.numeric(as.character(hours$Var1))
+for(x in 0:23){ if((x %in% hours$Var1)==FALSE){
+  hours[nrow(hours) + 1,] = c(x,0,x)
+}
+}
+hours<-arrange(hours, hour)
+hours$hour<-as.numeric(hours$hour)
+hours$Var1<-hours$hour
+hours$hour <- c(paste0(0:23,":00 - ", c(1:23,0),":00"))
+hours$hour <- factor(hours$hour, c(paste0(0:23,":00 - ", c(1:23,0),":00")))
+
+
+MmmmPie <- ggplot(hours, aes(x="", y=Freq, fill=hour)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0)+theme_void()+scale_fill_manual(values = colors, name = "Hour in UTC")
+```
+
+You listened to music the most between `r tophour`:00 and `r tophour+1`:00 UTC. In central time this is `r tophour-6`:00 and `r tophour-5`:00. If you don't live in central, I don't know how to help you. However, here's a pie chart of your hour breakdowns in UTC.
+
+```{r, echo=FALSE}
+MmmmPie
+```
+
+# Thanks!
